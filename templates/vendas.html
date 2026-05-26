@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}Vendas — Butterfly{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">📋 Vendas</div>
+    <div class="page-sub">{{ vendas|length }} venda(s) no período</div>
+  </div>
+  <a href="{{ url_for('pdv') }}" class="btn btn-primary">🛒 Nova Venda</a>
+</div>
+
+<div class="card" style="margin-bottom:20px;padding:16px">
+  <form method="get" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+    <div>
+      <label class="form-label">De</label>
+      <input type="date" name="ini" value="{{ data_ini }}" class="form-control">
+    </div>
+    <div>
+      <label class="form-label">Até</label>
+      <input type="date" name="fim" value="{{ data_fim }}" class="form-control">
+    </div>
+    <button type="submit" class="btn btn-primary">Filtrar</button>
+    <a href="{{ url_for('vendas') }}" class="btn btn-outline">Hoje</a>
+  </form>
+</div>
+
+{% set total_periodo = vendas | sum(attribute='total') %}
+<div class="stats-grid" style="margin-bottom:20px">
+  <div class="stat-card">
+    <div class="stat-label">Total do período</div>
+    <div class="stat-value rosa">R$ {{ '%.2f'|format(total_periodo) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Nº de vendas</div>
+    <div class="stat-value">{{ vendas|length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Ticket médio</div>
+    <div class="stat-value">R$ {{ '%.2f'|format(total_periodo / vendas|length) if vendas else '0,00' }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Data/Hora</th>
+          <th>Itens</th>
+          <th>Desconto</th>
+          <th>Total</th>
+          <th>Pagamento</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in vendas %}
+        <tr>
+          <td style="color:var(--texto-muted);font-size:12px">#{{ v.id }}</td>
+          <td style="font-size:13px">{{ v.criado_em[:16].replace('T',' ') }}</td>
+          <td>{{ v.qtd_itens }} iten(s)</td>
+          <td style="color:var(--aviso)">{% if v.desconto > 0 %}−R$ {{ '%.2f'|format(v.desconto) }}{% else %}—{% endif %}</td>
+          <td style="font-weight:600;color:var(--rosa-escuro)">R$ {{ '%.2f'|format(v.total) }}</td>
+          <td>
+            <span class="badge badge-info">
+              {% if v.forma_pagamento == 'Dinheiro' %}💵
+              {% elif v.forma_pagamento == 'PIX' %}📱
+              {% elif v.forma_pagamento == 'Crédito' %}🏦
+              {% elif v.forma_pagamento == 'Débito' %}💳
+              {% else %}🎟️{% endif %}
+              {{ v.forma_pagamento }}
+            </span>
+          </td>
+          <td><span class="badge badge-success">✓ Concluída</span></td>
+          <td><a href="{{ url_for('detalhe_venda', id=v.id) }}" class="btn btn-sm btn-outline">Ver</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;color:var(--texto-muted);padding:40px">Nenhuma venda no período.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

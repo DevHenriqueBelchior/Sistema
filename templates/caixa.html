@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% block title %}Fechamento de Caixa — Butterfly{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">💰 Caixa do Dia</div>
+    <div class="page-sub">{{ hoje }}</div>
+  </div>
+  {% if caixa %}
+    <span class="caixa-status {{ 'caixa-aberto' if caixa.status == 'aberto' else 'caixa-fechado' }}">
+      {{ '🟢 Aberto' if caixa.status == 'aberto' else '🔴 Fechado' }}
+    </span>
+  {% else %}
+    <span class="caixa-status caixa-fechado">⚪ Não iniciado</span>
+  {% endif %}
+</div>
+
+<!-- AÇÕES DO CAIXA -->
+{% if not caixa %}
+<div class="card" style="max-width:480px;margin-bottom:24px">
+  <div class="card-title" style="margin-bottom:16px">Abrir caixa do dia</div>
+  <form method="post">
+    <input type="hidden" name="acao" value="abrir">
+    <div class="form-group">
+      <label class="form-label">Saldo inicial (fundo de caixa)</label>
+      <input type="number" name="saldo_inicial" class="form-control" step="0.01" min="0" value="0" placeholder="0,00">
+    </div>
+    <button type="submit" class="btn btn-success btn-lg" style="width:100%;justify-content:center">
+      🟢 Abrir Caixa
+    </button>
+  </form>
+</div>
+
+{% elif caixa.status == 'aberto' %}
+
+<!-- RESUMO DO DIA -->
+<div class="stats-grid" style="margin-bottom:24px">
+  <div class="stat-card">
+    <div class="stat-label">Saldo inicial</div>
+    <div class="stat-value">R$ {{ '%.2f'|format(caixa.saldo_inicial) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Vendas do dia</div>
+    <div class="stat-value rosa">R$ {{ '%.2f'|format(vendas_dia) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Saldo esperado</div>
+    <div class="stat-value verde">R$ {{ '%.2f'|format(caixa.saldo_inicial + vendas_dia) }}</div>
+  </div>
+</div>
+
+<!-- PAGAMENTOS POR FORMA -->
+{% if resumo_pagamentos %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-title" style="margin-bottom:14px">Vendas por forma de pagamento</div>
+  <table>
+    <thead><tr><th>Forma</th><th>Qtd</th><th>Total</th></tr></thead>
+    <tbody>
+    {% for p in resumo_pagamentos %}
+    <tr>
+      <td style="font-weight:500">
+        {% if p.forma_pagamento == 'Dinheiro' %}💵
+        {% elif p.forma_pagamento == 'PIX' %}📱
+        {% elif p.forma_pagamento == 'Crédito' %}🏦
+        {% elif p.forma_pagamento == 'Débito' %}💳
+        {% else %}🎟️{% endif %}
+        {{ p.forma_pagamento }}
+      </td>
+      <td>{{ p.qtd }} vendas</td>
+      <td style="font-weight:600;color:var(--rosa-escuro)">R$ {{ '%.2f'|format(p.total) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- MOVIMENTAÇÕES -->
+<div class="grid-2" style="margin-bottom:20px">
+  <!-- Sangria -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:14px">➖ Registrar Sangria</div>
+    <form method="post">
+      <input type="hidden" name="acao" value="sangria">
+      <div class="form-group">
+        <label class="form-label">Valor (R$)</label>
+        <input type="number" name="valor" class="form-control" step="0.01" min="0.01" required placeholder="0,00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição</label>
+        <input type="text" name="descricao" class="form-control" placeholder="Ex: Pagamento fornecedor" value="Sangria">
+      </div>
+      <button type="submit" class="btn btn-danger" style="width:100%;justify-content:center">Registrar Sangria</button>
+    </form>
+  </div>
+
+  <!-- Suprimento -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:14px">➕ Registrar Suprimento</div>
+    <form method="post">
+      <input type="hidden" name="acao" value="suprimento">
+      <div class="form-group">
+        <label class="form-label">Valor (R$)</label>
+        <input type="number" name="valor" class="form-control" step="0.01" min="0.01" required placeholder="0,00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição</label>
+        <input type="text" name="descricao" class="form-control" placeholder="Ex: Reforço de caixa" value="Suprimento">
+      </div>
+      <button type="submit" class="btn btn-success" style="width:100%;justify-content:center">Registrar Suprimento</button>
+    </form>
+  </div>
+</div>
+
+<!-- FECHAMENTO -->
+<div class="card" style="border:2px solid var(--rosa);margin-bottom:24px">
+  <div class="card-title" style="margin-bottom:16px;color:var(--rosa-escuro)">🔴 Fechar Caixa</div>
+  <p style="font-size:13px;color:var(--texto-muted);margin-bottom:16px">
+    Ao fechar o caixa, o saldo final será calculado automaticamente com base nas vendas do dia.
+    Saldo esperado: <strong>R$ {{ '%.2f'|format(caixa.saldo_inicial + vendas_dia) }}</strong>
+  </p>
+  <form method="post" onsubmit="return confirm('Confirma o fechamento do caixa de hoje?')">
+    <input type="hidden" name="acao" value="fechar">
+    <div class="form-group">
+      <label class="form-label">Observação (opcional)</label>
+      <input type="text" name="observacao" class="form-control" placeholder="Ex: Encerramento normal do dia">
+    </div>
+    <button type="submit" class="btn btn-danger btn-lg" style="width:100%;justify-content:center">
+      🔴 Confirmar Fechamento de Caixa
+    </button>
+  </form>
+</div>
+
+{% else %}
+<!-- CAIXA FECHADO -->
+<div class="card" style="margin-bottom:24px;background:var(--rosa-claro);border-color:var(--rosa)">
+  <div style="text-align:center;padding:20px">
+    <div style="font-size:48px;margin-bottom:12px">🔐</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:8px">Caixa encerrado</div>
+    <div style="font-size:13px;color:var(--texto-muted)">Fechado às {{ caixa.fechado_em[:16] if caixa.fechado_em else '' }}</div>
+    <div style="margin-top:16px;font-size:22px;font-weight:700;color:var(--rosa-escuro)">
+      Saldo final: R$ {{ '%.2f'|format(caixa.saldo_final or 0) }}
+    </div>
+    {% if caixa.observacao %}
+    <div style="font-size:13px;color:var(--texto-muted);margin-top:8px">{{ caixa.observacao }}</div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- MOVIMENTAÇÕES DO DIA -->
+{% if movimentacoes %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-title" style="margin-bottom:14px">Movimentações do dia</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Horário</th><th>Tipo</th><th>Descrição</th><th>Valor</th></tr></thead>
+      <tbody>
+      {% for m in movimentacoes %}
+      <tr>
+        <td style="color:var(--texto-muted);font-size:12px">{{ m.criado_em[11:16] }}</td>
+        <td>
+          <span class="badge {{ 'badge-success' if m.tipo == 'entrada' else 'badge-danger' }}">
+            {{ '↑ Entrada' if m.tipo == 'entrada' else '↓ Saída' }}
+          </span>
+        </td>
+        <td>{{ m.descricao }}</td>
+        <td style="font-weight:600;color:{{ 'var(--sucesso)' if m.tipo == 'entrada' else 'var(--erro)' }}">
+          {{ '+' if m.tipo == 'entrada' else '−' }} R$ {{ '%.2f'|format(m.valor) }}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- HISTÓRICO -->
+{% if historico %}
+<div class="card">
+  <div class="card-title" style="margin-bottom:14px">Histórico de caixas</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Data</th><th>Saldo inicial</th><th>Saldo final</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for h in historico %}
+      <tr>
+        <td style="font-weight:500">{{ h.data }}</td>
+        <td>R$ {{ '%.2f'|format(h.saldo_inicial) }}</td>
+        <td>{% if h.saldo_final is not none %}R$ {{ '%.2f'|format(h.saldo_final) }}{% else %}<span style="color:var(--texto-muted)">—</span>{% endif %}</td>
+        <td><span class="badge {{ 'badge-success' if h.status == 'fechado' else 'badge-warning' }}">{{ h.status|capitalize }}</span></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

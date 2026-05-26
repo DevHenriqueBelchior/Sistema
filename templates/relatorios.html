@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+{% block title %}Relatórios — Butterfly{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">📊 Relatórios</div>
+    <div class="page-sub">{{ data_ini }} até {{ data_fim }}</div>
+  </div>
+</div>
+
+<!-- Filtro período -->
+<div class="card" style="margin-bottom:24px;padding:16px">
+  <form method="get" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+    <div>
+      <label class="form-label">Período rápido</label>
+      <div style="display:flex;gap:6px">
+        <a href="?periodo=7" class="btn btn-sm {{ 'btn-primary' if periodo=='7' else 'btn-outline' }}">7 dias</a>
+        <a href="?periodo=30" class="btn btn-sm {{ 'btn-primary' if periodo=='30' else 'btn-outline' }}">30 dias</a>
+        <a href="?periodo=90" class="btn btn-sm {{ 'btn-primary' if periodo=='90' else 'btn-outline' }}">90 dias</a>
+      </div>
+    </div>
+    <div>
+      <label class="form-label">De</label>
+      <input type="date" name="ini" value="{{ data_ini }}" class="form-control">
+    </div>
+    <div>
+      <label class="form-label">Até</label>
+      <input type="date" name="fim" value="{{ data_fim }}" class="form-control">
+    </div>
+    <button type="submit" class="btn btn-primary">Filtrar</button>
+  </form>
+</div>
+
+<!-- KPIs -->
+<div class="stats-grid" style="margin-bottom:24px">
+  <div class="stat-card">
+    <div class="stat-label">Receita bruta</div>
+    <div class="stat-value rosa">R$ {{ '%.2f'|format(resumo.receita) }}</div>
+    <div class="stat-badge">{{ resumo.qtd_vendas }} vendas</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Lucro estimado</div>
+    <div class="stat-value {{ 'verde' if lucro >= 0 else 'aviso' }}">R$ {{ '%.2f'|format(lucro) }}</div>
+    <div class="stat-badge">Margem {{ '%.1f'|format(margem) }}%</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Ticket médio</div>
+    <div class="stat-value">R$ {{ '%.2f'|format(resumo.ticket_medio) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total descontos</div>
+    <div class="stat-value aviso">R$ {{ '%.2f'|format(resumo.descontos) }}</div>
+  </div>
+</div>
+
+<!-- Gráficos -->
+<div class="grid-2" style="margin-bottom:20px">
+  <div class="card">
+    <div class="card-title">Receita por dia</div>
+    <div class="chart-wrap" style="height:220px">
+      <canvas id="chartDias"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Por forma de pagamento</div>
+    {% if por_pagamento %}
+    <div class="chart-wrap" style="height:220px;display:flex;align-items:center;justify-content:center">
+      <canvas id="chartPgto"></canvas>
+    </div>
+    {% else %}
+    <div style="color:var(--texto-muted);font-size:13px;padding:40px;text-align:center">Sem dados</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:20px">
+  <!-- Por categoria -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:14px">Por categoria</div>
+    {% if por_categoria %}
+    <table>
+      <thead><tr><th>Categoria</th><th>Itens</th><th>Receita</th><th>%</th></tr></thead>
+      <tbody>
+      {% for c in por_categoria %}
+      {% set pct = (c.receita / resumo.receita * 100) if resumo.receita > 0 else 0 %}
+      <tr>
+        <td style="font-weight:500">{{ c.categoria }}</td>
+        <td>{{ c.qtd }}</td>
+        <td style="color:var(--rosa-escuro);font-weight:600">R$ {{ '%.2f'|format(c.receita) }}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="width:60px;height:6px;background:var(--borda);border-radius:3px;overflow:hidden">
+              <div style="width:{{ '%.0f'|format(pct) }}%;height:100%;background:var(--rosa-escuro);border-radius:3px"></div>
+            </div>
+            <span style="font-size:12px;color:var(--texto-muted)">{{ '%.0f'|format(pct) }}%</span>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--texto-muted);font-size:13px">Sem dados.</p>
+    {% endif %}
+  </div>
+
+  <!-- Top produtos -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:14px">Top produtos</div>
+    {% if top_produtos %}
+    <table>
+      <thead><tr><th>Produto</th><th>Qtd</th><th>Receita</th></tr></thead>
+      <tbody>
+      {% for p in top_produtos %}
+      <tr>
+        <td style="font-weight:500;font-size:13px">{{ p.nome }}</td>
+        <td>{{ p.qtd }}</td>
+        <td style="color:var(--rosa-escuro);font-weight:600">R$ {{ '%.2f'|format(p.receita) }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--texto-muted);font-size:13px">Sem dados.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const diasLabels = {{ vendas_por_dia | map(attribute='dia') | list | tojson }};
+const diasTotais = {{ vendas_por_dia | map(attribute='total') | list | tojson }};
+
+new Chart(document.getElementById('chartDias').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: diasLabels,
+    datasets: [{
+      label: 'Receita',
+      data: diasTotais,
+      borderColor: '#c4608a',
+      backgroundColor: 'rgba(196,96,138,0.08)',
+      tension: 0.3,
+      fill: true,
+      pointBackgroundColor: '#c4608a',
+      pointRadius: 4
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { ticks: { callback: v => 'R$' + v } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+{% if por_pagamento %}
+new Chart(document.getElementById('chartPgto').getContext('2d'), {
+  type: 'doughnut',
+  data: {
+    labels: {{ por_pagamento | map(attribute='forma_pagamento') | list | tojson }},
+    datasets: [{
+      data: {{ por_pagamento | map(attribute='total') | list | tojson }},
+      backgroundColor: ['#f4a7c0','#c9b8e8','#a8d8c8','#f9d29d','#b8d4f4','#f4c8a8'],
+      borderWidth: 0
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { font: { size: 12 } } } }
+  }
+});
+{% endif %}
+</script>
+{% endblock %}

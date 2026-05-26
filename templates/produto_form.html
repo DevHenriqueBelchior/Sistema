@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Editar' if produto else 'Novo' }} Produto — Butterfly{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">{{ '✏️ Editar Produto' if produto else '+ Novo Produto' }}</div>
+    <div class="page-sub">{{ produto.nome if produto else 'Preencha os dados do produto' }}</div>
+  </div>
+  <a href="{{ url_for('produtos') }}" class="btn btn-outline">← Voltar</a>
+</div>
+
+<div style="max-width:640px">
+  <div class="card">
+    <form method="post">
+      <div class="form-group">
+        <label class="form-label">Nome do produto *</label>
+        <input type="text" name="nome" class="form-control" required
+          value="{{ produto.nome if produto else '' }}" placeholder="Ex: Caderno Universitário 96fls">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Categoria *</label>
+          <input type="text" name="categoria" class="form-control" required
+            value="{{ produto.categoria if produto else '' }}" placeholder="Ex: Cadernos"
+            list="categorias-list">
+          <datalist id="categorias-list">
+            <option value="Cadernos">
+            <option value="Canetas">
+            <option value="Lápis">
+            <option value="Borrachas">
+            <option value="Papéis">
+            <option value="Organização">
+            <option value="Acessórios">
+            <option value="Colas">
+            <option value="Tintas">
+            <option value="Arte">
+          </datalist>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Preço de venda (R$) *</label>
+          <input type="number" name="preco" class="form-control" step="0.01" min="0" required
+            value="{{ '%.2f'|format(produto.preco) if produto else '' }}" placeholder="0,00"
+            oninput="calcMargem()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Custo (R$) *</label>
+          <input type="number" name="custo" class="form-control" step="0.01" min="0" required
+            value="{{ '%.2f'|format(produto.custo) if produto else '' }}" placeholder="0,00"
+            oninput="calcMargem()">
+        </div>
+      </div>
+
+      <div class="card" style="background:var(--rosa-claro);border-color:var(--rosa);margin-bottom:16px;padding:14px">
+        <div style="font-size:13px;color:var(--texto-muted)">Margem de lucro estimada</div>
+        <div style="font-size:22px;font-weight:700;color:var(--rosa-escuro)" id="margemPreview">—</div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Estoque atual *</label>
+          <input type="number" name="estoque" class="form-control" min="0" required
+            value="{{ produto.estoque if produto else 0 }}" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Estoque mínimo</label>
+          <input type="number" name="estoque_minimo" class="form-control" min="0"
+            value="{{ produto.estoque_minimo if produto else 5 }}" placeholder="5">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:8px">
+        <a href="{{ url_for('produtos') }}" class="btn btn-outline">Cancelar</a>
+        <button type="submit" class="btn btn-primary">
+          {{ '💾 Salvar alterações' if produto else '+ Cadastrar produto' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function calcMargem() {
+  const preco = parseFloat(document.querySelector('[name=preco]').value) || 0;
+  const custo = parseFloat(document.querySelector('[name=custo]').value) || 0;
+  const el = document.getElementById('margemPreview');
+  if (preco > 0 && custo >= 0) {
+    const m = ((preco - custo) / preco * 100);
+    el.textContent = m.toFixed(1) + '%';
+    el.style.color = m >= 40 ? 'var(--sucesso)' : m >= 20 ? 'var(--aviso)' : 'var(--erro)';
+  } else {
+    el.textContent = '—';
+  }
+}
+calcMargem();
+</script>
+{% endblock %}

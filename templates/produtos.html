@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Produtos — Butterfly{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">📦 Produtos</div>
+    <div class="page-sub">{{ produtos|length }} produto(s) encontrado(s)</div>
+  </div>
+  <a href="{{ url_for('novo_produto') }}" class="btn btn-primary">+ Novo Produto</a>
+</div>
+
+<!-- Filtros -->
+<div class="card" style="margin-bottom:20px;padding:16px">
+  <form method="get" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px">
+      <label class="form-label">Buscar</label>
+      <input type="text" name="busca" value="{{ busca }}" class="form-control" placeholder="Nome do produto...">
+    </div>
+    <div>
+      <label class="form-label">Categoria</label>
+      <select name="categoria" class="form-control">
+        <option value="">Todas</option>
+        {% for cat in categorias %}
+        <option value="{{ cat.categoria }}" {% if cat.categoria == categoria %}selected{% endif %}>{{ cat.categoria }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Filtrar</button>
+    <a href="{{ url_for('produtos') }}" class="btn btn-outline">Limpar</a>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Produto</th>
+          <th>Categoria</th>
+          <th>Preço</th>
+          <th>Custo</th>
+          <th>Margem</th>
+          <th>Estoque</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in produtos %}
+        {% set margem = ((p.preco - p.custo) / p.preco * 100) if p.preco > 0 else 0 %}
+        <tr>
+          <td style="font-weight:500">{{ p.nome }}</td>
+          <td><span class="badge badge-rosa">{{ p.categoria }}</span></td>
+          <td style="color:var(--rosa-escuro);font-weight:600">R$ {{ '%.2f'|format(p.preco) }}</td>
+          <td style="color:var(--texto-muted)">R$ {{ '%.2f'|format(p.custo) }}</td>
+          <td>
+            <span class="badge {% if margem >= 40 %}badge-success{% elif margem >= 20 %}badge-warning{% else %}badge-danger{% endif %}">
+              {{ '%.0f'|format(margem) }}%
+            </span>
+          </td>
+          <td>
+            <span class="{% if p.estoque <= p.estoque_minimo %}badge badge-danger{% elif p.estoque <= p.estoque_minimo * 2 %}badge badge-warning{% else %}badge badge-success{% endif %}">
+              {{ p.estoque }} un.
+            </span>
+          </td>
+          <td>
+            {% if p.estoque <= p.estoque_minimo %}
+              <span class="badge badge-danger">⚠️ Repor</span>
+            {% else %}
+              <span class="badge badge-success">✓ OK</span>
+            {% endif %}
+          </td>
+          <td style="white-space:nowrap">
+            <a href="{{ url_for('editar_produto', id=p.id) }}" class="btn btn-sm btn-outline">✏️ Editar</a>
+            <form method="post" action="{{ url_for('excluir_produto', id=p.id) }}" style="display:inline"
+              onsubmit="return confirm('Remover {{ p.nome }}?')">
+              <button type="submit" class="btn btn-sm btn-danger">🗑️</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;color:var(--texto-muted);padding:40px">Nenhum produto encontrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

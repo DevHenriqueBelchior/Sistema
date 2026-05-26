@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Loja Butterfly{% endblock %}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <span class="logo-icon">🦋</span>
+    <div>
+      <div class="logo-name">Butterfly</div>
+      <div class="logo-sub">Papelaria & Bazar</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+      <span class="nav-icon">⊞</span> Dashboard
+    </a>
+    <a href="{{ url_for('pdv') }}" class="nav-item {% if request.endpoint == 'pdv' %}active{% endif %}">
+      <span class="nav-icon">🛒</span> PDV — Caixa
+    </a>
+    <a href="{{ url_for('caixa') }}" class="nav-item {% if request.endpoint == 'caixa' %}active{% endif %}">
+      <span class="nav-icon">💰</span> Fechamento
+    </a>
+    <div class="nav-sep">Gerenciamento</div>
+    <a href="{{ url_for('produtos') }}" class="nav-item {% if request.endpoint in ['produtos','novo_produto','editar_produto'] %}active{% endif %}">
+      <span class="nav-icon">📦</span> Produtos
+    </a>
+    <a href="{{ url_for('vendas') }}" class="nav-item {% if request.endpoint in ['vendas','detalhe_venda'] %}active{% endif %}">
+      <span class="nav-icon">📋</span> Vendas
+    </a>
+    <a href="{{ url_for('relatorios') }}" class="nav-item {% if request.endpoint == 'relatorios' %}active{% endif %}">
+      <span class="nav-icon">📊</span> Relatórios
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    {% set hoje = namespace(val='') %}
+    <div class="sidebar-date">{{ now.strftime('%d/%m/%Y') if now else '' }}</div>
+  </div>
+</aside>
+
+<main class="main-content">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-container">
+        {% for cat, msg in messages %}
+          <div class="flash flash-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

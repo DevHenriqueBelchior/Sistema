@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+{% block title %}PDV — Butterfly{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:16px">
+  <div>
+    <div class="page-title">🛒 Frente de Caixa</div>
+    <div class="page-sub">Selecione os produtos para adicionar ao carrinho</div>
+  </div>
+  <div style="display:flex;gap:10px">
+    <a href="{{ url_for('vendas') }}" class="btn btn-outline">📋 Ver Vendas</a>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-outline">⊞ Dashboard</a>
+  </div>
+</div>
+
+<div class="pdv-layout">
+  <!-- ESQUERDA: Produtos -->
+  <div class="pdv-left">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="searchProduto" class="form-control" placeholder="Buscar produto...">
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap" id="categoriasFilter">
+      <button class="btn btn-sm btn-primary cat-btn active" data-cat="">Todos</button>
+    </div>
+
+    <div class="produto-grid" id="produtoGrid">
+      <div style="color:var(--texto-muted);font-size:13px;grid-column:1/-1;padding:20px;text-align:center">Carregando produtos...</div>
+    </div>
+  </div>
+
+  <!-- DIREITA: Carrinho -->
+  <div class="pdv-right">
+    <div class="carrinho">
+      <div class="carrinho-header" style="display:flex;justify-content:space-between;align-items:center">
+        <h3>🧺 Carrinho</h3>
+        <button class="btn btn-sm btn-outline" onclick="limparCarrinho()">Limpar</button>
+      </div>
+
+      <div class="carrinho-itens" id="carrinhoItens">
+        <div class="carrinho-vazio" id="carrinhoVazio">
+          <div style="font-size:36px;margin-bottom:10px">🛍️</div>
+          Nenhum item ainda.<br>Clique em um produto para adicionar.
+        </div>
+      </div>
+
+      <div class="carrinho-footer">
+        <div class="total-line">
+          <span>Subtotal</span>
+          <span id="subtotalValor">R$ 0,00</span>
+        </div>
+        <div class="total-line">
+          <span>Desconto (R$)</span>
+          <input type="number" id="desconto" min="0" step="0.01" value="0"
+            style="width:90px;padding:4px 8px;border:1px solid var(--borda);border-radius:6px;font-family:inherit;font-size:13px;text-align:right"
+            oninput="atualizarTotais()">
+        </div>
+        <div class="total-final">
+          <span>Total</span>
+          <span id="totalValor">R$ 0,00</span>
+        </div>
+
+        <div style="font-size:12px;color:var(--texto-muted);margin-bottom:8px;font-weight:600">PAGAMENTO</div>
+        <div class="pagamento-opts">
+          <button class="pgto-btn active" data-pgto="Dinheiro">💵 Dinheiro</button>
+          <button class="pgto-btn" data-pgto="Débito">💳 Débito</button>
+          <button class="pgto-btn" data-pgto="Crédito">🏦 Crédito</button>
+          <button class="pgto-btn" data-pgto="PIX">📱 PIX</button>
+          <button class="pgto-btn" data-pgto="Vale">🎟️ Vale</button>
+          <button class="pgto-btn" data-pgto="Misto">🔀 Misto</button>
+        </div>
+
+        <div id="trocoBox" style="display:none;margin-bottom:12px">
+          <div class="total-line">
+            <span>Valor recebido</span>
+            <input type="number" id="valorRecebido" min="0" step="0.01"
+              style="width:100px;padding:4px 8px;border:1px solid var(--borda);border-radius:6px;font-family:inherit;font-size:13px;text-align:right"
+              oninput="calcularTroco()">
+          </div>
+          <div class="total-line" style="font-weight:600;color:var(--sucesso)">
+            <span>Troco</span>
+            <span id="trocoValor">R$ 0,00</span>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="finalizarVenda()" id="btnFinalizar" disabled>
+          ✅ Finalizar Venda
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Sucesso -->
+<div class="modal-overlay" id="modalSucesso">
+  <div class="modal" style="text-align:center">
+    <div style="font-size:56px;margin-bottom:16px">🎉</div>
+    <div class="modal-title" style="text-align:center">Venda realizada!</div>
+    <div style="font-size:28px;font-weight:700;color:var(--rosa-escuro);margin-bottom:6px" id="sucValor"></div>
+    <div style="font-size:13px;color:var(--texto-muted);margin-bottom:8px" id="sucPgto"></div>
+    <div style="font-size:13px;color:var(--sucesso);font-weight:600;margin-bottom:20px" id="sucTroco"></div>
+    <div class="modal-actions" style="justify-content:center">
+      <button class="btn btn-primary" onclick="novaVenda()">+ Nova Venda</button>
+      <a href="{{ url_for('vendas') }}" class="btn btn-outline">Ver Vendas</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let carrinho = [];
+let produtos = [];
+let formaPagamento = 'Dinheiro';
+
+// Carregar produtos
+async function carregarProdutos(busca='', cat='') {
+  let url = `/api/produtos?q=${encodeURIComponent(busca)}`;
+  const res = await fetch(url);
+  produtos = await res.json();
+
+  // Popular categorias
+  const cats = [...new Set(produtos.map(p => p.nome))]; // workaround - pegar do servidor
+  renderProdutos(busca, cat);
+}
+
+function renderProdutos(busca='', cat='') {
+  const grid = document.getElementById('produtoGrid');
+  let lista = produtos;
+  if (busca) lista = lista.filter(p => p.nome.toLowerCase().includes(busca.toLowerCase()));
+
+  if (!lista.length) {
+    grid.innerHTML = '<div style="color:var(--texto-muted);font-size:13px;grid-column:1/-1;padding:40px;text-align:center">Nenhum produto encontrado</div>';
+    return;
+  }
+
+  grid.innerHTML = lista.map(p => `
+    <button class="produto-btn ${p.estoque <= 0 ? 'sem-estoque' : ''}"
+      onclick="${p.estoque > 0 ? `adicionarItem(${p.id},'${p.nome.replace(/'/g,"\\'")}',${p.preco},${p.estoque})` : ''}">
+      <div class="produto-nome">${p.nome}</div>
+      <div class="produto-preco">R$ ${p.preco.toFixed(2).replace('.',',')}</div>
+      <div class="produto-estoque">${p.estoque > 0 ? `${p.estoque} em estoque` : '⚠️ Sem estoque'}</div>
+    </button>
+  `).join('');
+}
+
+function adicionarItem(id, nome, preco, estoqueMax) {
+  const idx = carrinho.findIndex(i => i.id === id);
+  if (idx >= 0) {
+    if (carrinho[idx].quantidade < estoqueMax) {
+      carrinho[idx].quantidade++;
+    }
+  } else {
+    carrinho.push({ id, nome, preco, quantidade: 1, estoqueMax });
+  }
+  renderCarrinho();
+}
+
+function alterarQtd(id, delta) {
+  const idx = carrinho.findIndex(i => i.id === id);
+  if (idx < 0) return;
+  carrinho[idx].quantidade += delta;
+  if (carrinho[idx].quantidade <= 0) {
+    carrinho.splice(idx, 1);
+  } else if (carrinho[idx].quantidade > carrinho[idx].estoqueMax) {
+    carrinho[idx].quantidade = carrinho[idx].estoqueMax;
+  }
+  renderCarrinho();
+}
+
+function limparCarrinho() {
+  carrinho = [];
+  document.getElementById('desconto').value = 0;
+  renderCarrinho();
+}
+
+function renderCarrinho() {
+  const cont = document.getElementById('carrinhoItens');
+  const vazio = document.getElementById('carrinhoVazio');
+
+  if (!carrinho.length) {
+    cont.innerHTML = '';
+    cont.appendChild(document.getElementById('carrinhoVazio') || criarVazio());
+    vazio && (vazio.style.display = 'block');
+    document.getElementById('btnFinalizar').disabled = true;
+    atualizarTotais();
+    return;
+  }
+
+  document.getElementById('btnFinalizar').disabled = false;
+
+  cont.innerHTML = carrinho.map(item => `
+    <div class="item-carrinho">
+      <div class="item-nome">${item.nome}</div>
+      <div class="item-qty">
+        <button class="qty-btn" onclick="alterarQtd(${item.id},-1)">−</button>
+        <span style="font-size:14px;font-weight:600;min-width:24px;text-align:center">${item.quantidade}</span>
+        <button class="qty-btn" onclick="alterarQtd(${item.id},1)">+</button>
+      </div>
+      <div class="item-subtotal">R$ ${(item.preco * item.quantidade).toFixed(2).replace('.',',')}</div>
+    </div>
+  `).join('');
+
+  atualizarTotais();
+}
+
+function atualizarTotais() {
+  const subtotal = carrinho.reduce((s,i) => s + i.preco * i.quantidade, 0);
+  const desconto = Math.min(parseFloat(document.getElementById('desconto').value)||0, subtotal);
+  const total = subtotal - desconto;
+
+  document.getElementById('subtotalValor').textContent = `R$ ${subtotal.toFixed(2).replace('.',',')}`;
+  document.getElementById('totalValor').textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
+  calcularTroco();
+}
+
+function calcularTroco() {
+  const subtotal = carrinho.reduce((s,i) => s + i.preco * i.quantidade, 0);
+  const desconto = parseFloat(document.getElementById('desconto').value)||0;
+  const total = subtotal - desconto;
+  const recebido = parseFloat(document.getElementById('valorRecebido')?.value||0);
+  const troco = Math.max(recebido - total, 0);
+  const el = document.getElementById('trocoValor');
+  if (el) el.textContent = `R$ ${troco.toFixed(2).replace('.',',')}`;
+}
+
+// Pagamento
+document.querySelectorAll('.pgto-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.pgto-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    formaPagamento = btn.dataset.pgto;
+    document.getElementById('trocoBox').style.display = formaPagamento === 'Dinheiro' ? 'block' : 'none';
+  });
+});
+
+async function finalizarVenda() {
+  if (!carrinho.length) return;
+  const subtotal = carrinho.reduce((s,i) => s + i.preco * i.quantidade, 0);
+  const desconto = parseFloat(document.getElementById('desconto').value)||0;
+  const total = subtotal - desconto;
+
+  const res = await fetch('/api/venda', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      itens: carrinho.map(i => ({ produto_id: i.id, preco: i.preco, quantidade: i.quantidade })),
+      desconto,
+      forma_pagamento: formaPagamento
+    })
+  });
+  const data = await res.json();
+  if (data.sucesso) {
+    document.getElementById('sucValor').textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
+    document.getElementById('sucPgto').textContent = `Pago via ${formaPagamento}`;
+    const recebido = parseFloat(document.getElementById('valorRecebido')?.value||0);
+    const troco = formaPagamento === 'Dinheiro' ? Math.max(recebido - total, 0) : 0;
+    document.getElementById('sucTroco').textContent = troco > 0 ? `Troco: R$ ${troco.toFixed(2).replace('.',',')}` : '';
+    document.getElementById('modalSucesso').classList.add('open');
+  } else {
+    alert('Erro: ' + (data.erro || 'Tente novamente'));
+  }
+}
+
+function novaVenda() {
+  document.getElementById('modalSucesso').classList.remove('open');
+  limparCarrinho();
+  carregarProdutos();
+}
+
+// Busca
+document.getElementById('searchProduto').addEventListener('input', e => {
+  renderProdutos(e.target.value);
+});
+
+// Init
+carregarProdutos();
+</script>
+{% endblock %}

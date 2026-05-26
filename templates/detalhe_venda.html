@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Venda #{{ venda.id }} — Butterfly{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">🧾 Venda #{{ venda.id }}</div>
+    <div class="page-sub">{{ venda.criado_em[:16].replace('T', ' ') }}</div>
+  </div>
+  <a href="{{ url_for('vendas') }}" class="btn btn-outline">← Voltar</a>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title" style="margin-bottom:16px">Itens da venda</div>
+    <table>
+      <thead><tr><th>Produto</th><th>Qtd</th><th>Preço un.</th><th>Subtotal</th></tr></thead>
+      <tbody>
+      {% for item in itens %}
+      <tr>
+        <td style="font-weight:500">{{ item.nome }}</td>
+        <td>{{ item.quantidade }}</td>
+        <td>R$ {{ '%.2f'|format(item.preco_unitario) }}</td>
+        <td style="font-weight:600;color:var(--rosa-escuro)">R$ {{ '%.2f'|format(item.subtotal) }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title" style="margin-bottom:14px">Resumo</div>
+      <div class="total-line"><span>Subtotal</span><span>R$ {{ '%.2f'|format(venda.total + venda.desconto) }}</span></div>
+      {% if venda.desconto > 0 %}
+      <div class="total-line" style="color:var(--aviso)"><span>Desconto</span><span>−R$ {{ '%.2f'|format(venda.desconto) }}</span></div>
+      {% endif %}
+      <div style="display:flex;justify-content:space-between;font-size:22px;font-weight:700;color:var(--rosa-escuro);margin-top:10px;padding-top:10px;border-top:1px solid var(--borda)">
+        <span>Total</span><span>R$ {{ '%.2f'|format(venda.total) }}</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px">Pagamento</div>
+      <span class="badge badge-info" style="font-size:14px;padding:8px 14px">
+        {% if venda.forma_pagamento == 'Dinheiro' %}💵
+        {% elif venda.forma_pagamento == 'PIX' %}📱
+        {% elif venda.forma_pagamento == 'Crédito' %}🏦
+        {% elif venda.forma_pagamento == 'Débito' %}💳
+        {% else %}🎟️{% endif %}
+        {{ venda.forma_pagamento }}
+      </span>
+      {% if venda.observacao %}
+      <div style="margin-top:12px;font-size:13px;color:var(--texto-muted)">{{ venda.observacao }}</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

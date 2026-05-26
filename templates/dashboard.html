@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — Butterfly{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">🦋 Bom dia, Butterfly!</div>
+    <div class="page-sub">Resumo do dia — {{ hoje }}</div>
+  </div>
+  <a href="{{ url_for('pdv') }}" class="btn btn-primary btn-lg">🛒 Abrir PDV</a>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">Vendas hoje</div>
+    <div class="stat-value rosa">R$ {{ '%.2f'|format(vendas_hoje.total) }}</div>
+    <div class="stat-badge">{{ vendas_hoje.qtd }} transações</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Ticket médio</div>
+    <div class="stat-value">R$ {{ '%.2f'|format(ticket_medio) }}</div>
+    <div class="stat-badge">por venda</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Produtos ativos</div>
+    <div class="stat-value">{{ total_produtos }}</div>
+    <div class="stat-badge">no catálogo</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Estoque baixo</div>
+    <div class="stat-value {% if produtos_baixos > 0 %}aviso{% else %}verde{% endif %}">{{ produtos_baixos }}</div>
+    <div class="stat-badge">produtos para repor</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Caixa hoje</div>
+    {% if caixa_hoje %}
+      <div class="stat-value {% if caixa_hoje.status == 'aberto' %}verde{% else %}aviso{% endif %}">
+        {{ '🟢' if caixa_hoje.status == 'aberto' else '🔴' }} {{ caixa_hoje.status|capitalize }}
+      </div>
+    {% else %}
+      <div class="stat-value aviso">Não aberto</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:20px">
+  <div class="card">
+    <div class="card-title">Vendas — últimos 7 dias</div>
+    <div class="chart-wrap" style="height:220px">
+      <canvas id="chartVendas"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Formas de pagamento hoje</div>
+    {% if pagamentos %}
+    <div class="chart-wrap" style="height:220px; display:flex; align-items:center; justify-content:center;">
+      <canvas id="chartPgto"></canvas>
+    </div>
+    {% else %}
+    <div style="color:var(--texto-muted); font-size:13px; padding:40px 0; text-align:center;">Nenhuma venda hoje</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title" style="margin-bottom:14px">Top produtos — últimos 30 dias</div>
+  {% if top_produtos %}
+  <table>
+    <thead><tr><th>Produto</th><th>Qtd vendida</th><th>Receita</th></tr></thead>
+    <tbody>
+    {% for p in top_produtos %}
+    <tr>
+      <td style="font-weight:500">{{ p.nome }}</td>
+      <td>{{ p.qtd_vendida }} un.</td>
+      <td style="color:var(--rosa-escuro); font-weight:600">R$ {{ '%.2f'|format(p.receita) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:var(--texto-muted); font-size:13px">Sem dados de vendas ainda.</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const diasLabels = {{ vendas_semana | map(attribute='dia') | list | tojson }};
+const diasTotais = {{ vendas_semana | map(attribute='total') | list | tojson }};
+
+const ctx1 = document.getElementById('chartVendas').getContext('2d');
+new Chart(ctx1, {
+  type: 'bar',
+  data: {
+    labels: diasLabels,
+    datasets: [{
+      label: 'Receita (R$)',
+      data: diasTotais,
+      backgroundColor: '#f4a7c0',
+      borderRadius: 8
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { ticks: { callback: v => 'R$'+v } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+{% if pagamentos %}
+const pgtoLabels = {{ pagamentos | map(attribute='forma_pagamento') | list | tojson }};
+const pgtoTotais = {{ pagamentos | map(attribute='total') | list | tojson }};
+const ctx2 = document.getElementById('chartPgto').getContext('2d');
+new Chart(ctx2, {
+  type: 'doughnut',
+  data: {
+    labels: pgtoLabels,
+    datasets: [{
+      data: pgtoTotais,
+      backgroundColor: ['#f4a7c0','#c9b8e8','#a8d8c8','#f9d29d'],
+      borderWidth: 0
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { font: { size: 12 } } } }
+  }
+});
+{% endif %}
+</script>
+{% endblock %}
